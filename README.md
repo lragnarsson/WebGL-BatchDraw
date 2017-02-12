@@ -44,7 +44,6 @@ Here is a speed comparison taking the average over 5 runs of the test script:
 |--------------------|--------------|---------------|-----------------|------------------|
 | BatchDraw, Firefox | 3.9 ms       | 5.3 ms        | 20.8 ms         |  185 ms          |
 | Canvas 2D, Firefox | 46 ms        | 416 ms        | 4113 ms         |  42,000 ms       |
-|--------------------|--------------|---------------|-----------------|------------------|
 | BatchDraw, Chrome  | 2.4 ms       | 21 ms         | 145 ms          |  crashed         |
 | Canvas 2D, Chrome  | 53 ms        | 417 ms        | 4051 ms         |  crashed         |
 
