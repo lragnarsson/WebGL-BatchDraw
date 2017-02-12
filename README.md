@@ -40,8 +40,13 @@ All coordinates/sizes can be in pixels with coordinates starting from the top le
 ## Performance Comparison
 Here is a speed comparison taking the average over 5 runs of the test script:
 
-|           | 10,000 lines | 100,000 lines | 1,000,000 lines |
-|-----------|--------------|---------------|----------------|
-| BatchDraw | 2.4 ms       | 21 ms         | 145 ms         | 
-| Canvas 2D | 53 ms        | 417 ms        | 4051 ms        |
+|                    | 10,000 lines | 100,000 lines | 1,000,000 lines | 10,000,000 lines |
+|--------------------|--------------|---------------|-----------------|------------------|
+| BatchDraw, Firefox | 3.9 ms       | 5.3 ms        | 20.8 ms         |  185 ms          |
+| Canvas 2D, Firefox | 46 ms        | 416 ms        | 4113 ms         |  42,000 ms       |
+|--------------------|--------------|---------------|-----------------|------------------|
+| BatchDraw, Chrome  | 2.4 ms       | 21 ms         | 145 ms          |  crashed         |
+| Canvas 2D, Chrome  | 53 ms        | 417 ms        | 4051 ms         |  crashed         |
 
+Chrome didn't like creating 10,000,000 javascript objects and had slower performance overall for the batch approach, 
+most of the extra BatchDraw time on chrome was copying the js line data.

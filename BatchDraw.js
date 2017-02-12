@@ -127,16 +127,14 @@ class BatchDrawer {
                                     vec2 centerPos = 0.5 * (lineStart + lineEnd);
                                     float lineLength = length(delta);
                                     float phi = atan(delta.y/delta.x);
-                                    float cosphi = cos(phi);
-                                    float sinphi = sin(phi);
-
+                                     
                                     mat3 scale = mat3(
                                           lineLength, 0, 0,
                                           0, lineWidth, 0,
                                           0, 0, 1);
                                     mat3 rotate = mat3(
-                                          cosphi, sinphi, 0,
-                                          -sinphi, cosphi, 0,
+                                          cos(phi), sin(phi), 0,
+                                          -sin(phi), cos(phi), 0,
                                           0, 0, 1);
                                     mat3 translate = mat3(
                                           1, 0, 0,
@@ -253,10 +251,10 @@ class BatchDrawer {
         this.lineEndArray[2*this.numLines] = endX;
         this.lineEndArray[2*this.numLines+1] = endY;
         this.lineWidthArray[this.numLines] = width;
-        this.lineColorArray[this.numLines*4] = colorR;
-        this.lineColorArray[this.numLines*4+1] = colorG;
-        this.lineColorArray[this.numLines*4+2] = colorB;
-        this.lineColorArray[this.numLines*4+3] = colorAlpha;
+        this.lineColorArray[4*this.numLines] = colorR;
+        this.lineColorArray[4*this.numLines+1] = colorG;
+        this.lineColorArray[4*this.numLines+2] = colorB;
+        this.lineColorArray[4*this.numLines+3] = colorAlpha;
         this.numLines++;
     }
 
@@ -265,10 +263,10 @@ class BatchDrawer {
         this.dotPosArray[2*this.numDots] = posX;
         this.dotPosArray[2*this.numDots+1] = posY;
         this.dotSizeArray[this.numDots] = size;
-        this.dotColorArray[this.numDots*4] = colorR;
-        this.dotColorArray[this.numDots*4+1] = colorG;
-        this.dotColorArray[this.numDots*4+2] = colorB;
-        this.dotColorArray[this.numDots*4+3] = colorAlpha;
+        this.dotColorArray[4*this.numDots] = colorR;
+        this.dotColorArray[4*this.numDots+1] = colorG;
+        this.dotColorArray[4*this.numDots+2] = colorB;
+        this.dotColorArray[4*this.numDots+3] = colorAlpha;
         this.numDots++;
     }
 
@@ -297,28 +295,28 @@ class BatchDrawer {
 
     _updateLineBuffers() {
         this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.lineStartBuffer);
-        this.GL.bufferSubData(this.GL.ARRAY_BUFFER, 0, this.lineStartArray, 0);
+        this.GL.bufferSubData(this.GL.ARRAY_BUFFER, 0, this.lineStartArray, 0, this.numLines * 2);
 
         this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.lineEndBuffer);
-        this.GL.bufferSubData(this.GL.ARRAY_BUFFER, 0, this.lineEndArray , 0);
+        this.GL.bufferSubData(this.GL.ARRAY_BUFFER, 0, this.lineEndArray , 0, this.numLines * 2);
 
         this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.lineWidthBuffer);
-        this.GL.bufferSubData(this.GL.ARRAY_BUFFER, 0, this.lineWidthArray , 0);
+        this.GL.bufferSubData(this.GL.ARRAY_BUFFER, 0, this.lineWidthArray , 0, this.numLines * 1);
 
         this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.lineColorBuffer);
-        this.GL.bufferSubData(this.GL.ARRAY_BUFFER, 0, this.lineColorArray , 0);
+        this.GL.bufferSubData(this.GL.ARRAY_BUFFER, 0, this.lineColorArray , 0, this.numLines * 4);
     }
 
 
     _updateDotBuffers() {
         this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.dotPosBuffer);
-        this.GL.bufferSubData(this.GL.ARRAY_BUFFER, 0, this.dotPosArray, 0);
+        this.GL.bufferSubData(this.GL.ARRAY_BUFFER, 0, this.dotPosArray, 0, this.numDots * 2);
 
         this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.dotSizeBuffer);
-        this.GL.bufferSubData(this.GL.ARRAY_BUFFER, 0, this.dotSizeArray, 0);
+        this.GL.bufferSubData(this.GL.ARRAY_BUFFER, 0, this.dotSizeArray, 0, this.numDots * 1);
 
         this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.dotColorBuffer);
-        this.GL.bufferSubData(this.GL.ARRAY_BUFFER, 0, this.dotColorArray, 0);
+        this.GL.bufferSubData(this.GL.ARRAY_BUFFER, 0, this.dotColorArray, 0, this.numDots * 4);
     }
 
 

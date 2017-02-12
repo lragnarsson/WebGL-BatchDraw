@@ -5,7 +5,7 @@ function main() {
     if (debug) {
         debugTest();
     } else {
-        var N = 30000;
+        var N = 1000000;
         var lines = generateLines(N);
 
         //timeCanvas2D(lines, N);
@@ -66,7 +66,7 @@ function timeBatchDraw(lines, N) {
     let params = {
         maxElements: N,
         clearColor: {r: 1, g: 1, b: 1, alpha: 1},
-        usePixelValues: true,
+        usePixelCoords: true,
         forceGL1: false
     };
     let batchDrawer = new BatchDrawer(canvas, params);
@@ -79,9 +79,9 @@ function timeBatchDraw(lines, N) {
     for (i=0; i<N; i++) {
         batchDrawer.addLine(lines[i].fromX, lines[i].fromY, lines[i].toX, lines[i].toY, 0.01, 1, 0.5, 0.1, 1);
     }
-
     batchDrawer.draw(false);
     console.timeEnd("BatchDraw");
+
 }
 
 
