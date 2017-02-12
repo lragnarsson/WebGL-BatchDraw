@@ -6,7 +6,7 @@ class BatchDrawer {
         this.maxElements = params.maxElements;
         this.forceGL1 = params.forceGL1;
         this.clearColor = params.clearColor;
-        this.usePixelValues = params.usePixelValues;
+        this.usePixelCoords = params.usePixelCoords;
         
         this.error = null;
         this.numLines = 0;
@@ -224,13 +224,13 @@ class BatchDrawer {
 
     _initUniforms() {
         let projection = new Float32Array([2 / this.canvas.width, 0, 0,
-                                           0, 2 / this.canvas.height, 0,
-                                           0, 0, 1]);
+                                           0, -2 / this.canvas.height, 0,
+                                          -1, 1, 1]);
         let resScaleX = 1;
         let resScaleY = 1;
-        if (!this.usePixelValues) {
-            resScaleX = this.canvas.width / 2;
-            resScaleY = this.canvas.height / 2;
+        if (!this.usePixelCoords) {
+            resScaleX = this.canvas.width;
+            resScaleY = this.canvas.height;
         }
  
         this.GL.useProgram(this.lineProgram);
