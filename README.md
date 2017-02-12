@@ -48,4 +48,4 @@ Here is a speed comparison taking the average over 5 runs of the test script:
 | Canvas 2D, Chrome  | 53 ms        | 417 ms        | 4051 ms         |  crashed         |
 
 Chrome didn't like creating 10,000,000 javascript objects and had slower performance overall for the batch approach, 
-most of the extra BatchDraw time on chrome was copying the js line data.
+most of the extra BatchDraw time on chrome was copying the js line data. The test was done on a Windows 10 PC with an i5 3570K @ 3.4 Ghz and a GTX 670.
