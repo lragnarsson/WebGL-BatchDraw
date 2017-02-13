@@ -35,7 +35,7 @@ function debugTest() {
         // In normalized screen coordinates [0, 1]
         //batchDrawer.addLine(0.5, 0.5, 1, 0, 0.01, 0.8, 0.1, 0.7, 1.0);
         //batchDrawer.addDot(0.3, 0.5, 0.05, 0.1, 0.7, 1, 1);
-        
+
         batchDrawer.draw(false);
     }
 }
@@ -77,7 +77,7 @@ function timeBatchDraw(lines, N) {
     }
     console.time("BatchDraw");
     for (i=0; i<N; i++) {
-        batchDrawer.addLine(lines[i].fromX, lines[i].fromY, lines[i].toX, lines[i].toY, 0.01, 1, 0.5, 0.1, 1);
+        batchDrawer.addLine(lines[i].fromX, lines[i].fromY, lines[i].toX, lines[i].toY, 0.001, 1, 0.5, 0.1, 1);
     }
     batchDrawer.draw(false);
     console.timeEnd("BatchDraw");

@@ -7,7 +7,7 @@ class BatchDrawer {
         this.forceGL1 = params.forceGL1;
         this.clearColor = params.clearColor;
         this.usePixelCoords = params.usePixelCoords;
-        
+
         this.error = null;
         this.numLines = 0;
         this.numDots = 0;
@@ -45,9 +45,21 @@ class BatchDrawer {
         if (!this.GL) {
             try {
                 this.GL = this.canvas.getContext("webgl");
+                this.ext = this.GL.getExtension("ANGLE_instanced_arrays");
                 this.GLVersion = 1;
             } catch(e) {
                 console.log("Could not create a WebGL1 context.");
+            }
+        }
+
+        // Fallback to WebGL experimental (Internet explorer):
+        if (!this.GL) {
+            try {
+                this.GL = this.canvas.getContext("experimental-webgl");
+                this.ext = this.GL.getExtension("ANGLE_instanced_arrays");
+                this.GLVersion = 1;
+            } catch(e) {
+                console.log("Could not create an experimental-WebGL1 context.");
             }
         }
 
@@ -101,92 +113,6 @@ class BatchDrawer {
     }
 
 
-    _initShaders() {
-        // Shader source code:
-        let lineVertexSource = `#version 300 es  
-                                precision highp float;
-                                layout(location = 0) in vec3 vertexPos;
-                                layout(location = 1) in vec2 inLineStart;
-                                layout(location = 2) in vec2 inLineEnd;
-                                layout(location = 3) in float inLineWidth;
-                                layout(location = 4) in vec4 lineColor;
-
-                                out vec4 color;
-
-                                uniform mat3 projection;
-                                uniform vec2 resolutionScale;
-
-                                void main(void) {
-                                    color = lineColor;
-
-                                    vec2 lineStart = inLineStart * resolutionScale;
-                                    vec2 lineEnd = inLineEnd * resolutionScale;
-                                    float lineWidth = inLineWidth * resolutionScale.x;
-
-                                    vec2 delta = lineStart - lineEnd;
-                                    vec2 centerPos = 0.5 * (lineStart + lineEnd);
-                                    float lineLength = length(delta);
-                                    float phi = atan(delta.y/delta.x);
-                                     
-                                    mat3 scale = mat3(
-                                          lineLength, 0, 0,
-                                          0, lineWidth, 0,
-                                          0, 0, 1);
-                                    mat3 rotate = mat3(
-                                          cos(phi), sin(phi), 0,
-                                          -sin(phi), cos(phi), 0,
-                                          0, 0, 1);
-                                    mat3 translate = mat3(
-                                          1, 0, 0,
-                                          0, 1, 0,
-                                          centerPos.x, centerPos.y, 1);
-
-                                     
-                                    gl_Position = vec4(projection * translate *  rotate *  scale * vertexPos, 1.0);
-                                }`;
-
-
-        let fragSource =   `#version 300 es
-                            precision highp float; 
-                            in vec4 color;
-                            out vec4 fragmentColor;
-                          
-                            void main(void) {
-                                fragmentColor = color;
-                            }`;
-
-
-        let dotVertexSource =    `#version 300 es  
-                                  precision highp float;
-                                  layout(location = 0) in vec3 vertexPos;
-                                  layout(location = 1) in vec2 inDotPos;
-                                  layout(location = 2) in float inDotSize;
-                                  layout(location = 3) in vec4 dotColor;
-                                  
-                                  out vec4 color;
-
-                                  uniform mat3 projection;
-                                  uniform vec2 resolutionScale;
-
-                                  void main(void) {
-                                    color = dotColor;
-                                    vec2 dotPos = resolutionScale * inDotPos;
-                                    float dotSize = resolutionScale.x * inDotSize;
-                                    mat3 translate = mat3(
-                                      dotSize, 0, 0,
-                                      0, dotSize, 0,
-                                      dotPos.x, dotPos.y, 1);
-                                      
-                                    gl_Position = vec4(projection * translate * vertexPos, 1.0);
-                                  }`;
-
-
-        this.lineProgram = this._createShaderProgram(lineVertexSource, fragSource);
-        this.dotProgram = this._createShaderProgram(dotVertexSource, fragSource);
-        return (this.lineProgram != false && this.dotProgram != false);
-    }
-
-
     _createShaderProgram(vertexSource, fragmentSource) {
         let vertexShader = this._compileShader(vertexSource, this.GL.VERTEX_SHADER);
         let fragmentShader = this._compileShader(fragmentSource, this.GL.FRAGMENT_SHADER);
@@ -213,7 +139,7 @@ class BatchDrawer {
         this.GL.compileShader(shader);
 
         if (!this.GL.getShaderParameter(shader, this.GL.COMPILE_STATUS)) {
-            this.error = "Could not compile shader: " + this.GL.getShaderInfoLog(shader)
+            this.error = "Could not compile shader: " + this.GL.getShaderInfoLog(shader);
             return null;
         }
         return shader;
@@ -230,7 +156,7 @@ class BatchDrawer {
             resScaleX = this.canvas.width;
             resScaleY = this.canvas.height;
         }
- 
+
         this.GL.useProgram(this.lineProgram);
         let lineProjLoc = this.GL.getUniformLocation(this.lineProgram, 'projection');
         this.GL.uniformMatrix3fv(lineProjLoc, false, projection);
@@ -275,15 +201,28 @@ class BatchDrawer {
         // Clear screen:
         this.GL.clear(this.GL.COLOR_BUFFER_BIT);
 
-        if (this.numLines > 0) {
-            // Update all line vertex buffers with added lines and dots:
-            this._updateLineBuffers();
-            this._drawLines();
-        }
-        if (this.numDots > 0) {
-            // Update all line vertex buffers with added lines and dots:
-            this._updateDotBuffers();
-            this._drawDots();
+        if (this.GLVersion == 2) {
+            if (this.numLines > 0) {
+                // Update all line vertex buffers with added lines and dots:
+                this._updateLineBuffers();
+                this._drawLinesGL2();
+            }
+            if (this.numDots > 0) {
+                // Update all line vertex buffers with added lines and dots:
+                this._updateDotBuffers();
+                this._drawDotsGL2();
+            }
+        } else if (this.GLVersion == 1) {
+            if (this.numLines > 0) {
+                // Update all line vertex buffers with added lines and dots:
+                this._updateLineBuffers();
+                this._drawLinesGL1();
+            }
+            if (this.numDots > 0) {
+                // Update all line vertex buffers with added lines and dots:
+                this._updateDotBuffers();
+                this._drawDotsGL1();
+            }
         }
         if (!keepOld) {
             // Don't keep old elements for next draw call
@@ -320,7 +259,7 @@ class BatchDrawer {
     }
 
 
-    _drawLines() {  
+    _drawLinesGL2() {
         const LINE_VX_BUF = 0;
         const LINE_START_BUF = 1;
         const LINE_END_BUF = 2;
@@ -360,7 +299,8 @@ class BatchDrawer {
         this.GL.drawArraysInstanced(this.GL.TRIANGLE_STRIP, 0, 4, this.numLines);
     }
 
-    _drawDots() { 
+
+    _drawDotsGL2() {
         const DOT_VX_BUF = 0;
         const DOT_POS_BUF = 1;
         const DOT_SIZE_BUF = 2;
@@ -392,5 +332,177 @@ class BatchDrawer {
 
         // Draw all dot instances:
         this.GL.drawArraysInstanced(this.GL.TRIANGLE_STRIP, 0, 4, this.numDots);
+    }
+
+
+    _drawLinesGL1() {
+        const LINE_VX_BUF = 0;
+        const LINE_START_BUF = 1;
+        const LINE_END_BUF = 2;
+        const LINE_WIDTH_BUF = 3;
+        const LINE_COLOR_BUF = 4;
+
+        // Use line drawing shaders:
+        this.GL.useProgram(this.lineProgram);
+
+        this.GL.enableVertexAttribArray(LINE_VX_BUF);
+        this.GL.enableVertexAttribArray(LINE_START_BUF);
+        this.GL.enableVertexAttribArray(LINE_END_BUF);
+        this.GL.enableVertexAttribArray(LINE_WIDTH_BUF);
+        this.GL.enableVertexAttribArray(LINE_COLOR_BUF);
+
+        // Bind all line vertex buffers:
+        this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.lineVertexBuffer);
+        this.GL.vertexAttribPointer(LINE_VX_BUF, 3, this.GL.FLOAT, false, 0, 0);
+
+        this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.lineStartBuffer);
+        this.GL.vertexAttribPointer(LINE_START_BUF, 2, this.GL.FLOAT, false, 8, 0);
+        this.ext.vertexAttribDivisorANGLE(LINE_START_BUF, 1);
+
+        this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.lineEndBuffer);
+        this.GL.vertexAttribPointer(LINE_END_BUF, 2, this.GL.FLOAT, false, 8, 0);
+        this.ext.vertexAttribDivisorANGLE(LINE_END_BUF, 1);
+
+        this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.lineWidthBuffer);
+        this.GL.vertexAttribPointer(LINE_WIDTH_BUF, 1, this.GL.FLOAT, false, 4, 0);
+        this.ext.vertexAttribDivisorANGLE(LINE_WIDTH_BUF, 1);
+
+        this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.lineColorBuffer);
+        this.GL.vertexAttribPointer(LINE_COLOR_BUF, 4, this.GL.FLOAT, false, 16, 0);
+        this.ext.vertexAttribDivisorANGLE(LINE_COLOR_BUF, 1);
+
+        // Draw all line instances:
+        this.ext.drawArraysInstancedANGLE(this.GL.TRIANGLE_STRIP, 0, 4, this.numLines);
+    }
+
+
+    _drawDotsGL1() {
+        const DOT_VX_BUF = 0;
+        const DOT_POS_BUF = 1;
+        const DOT_SIZE_BUF = 2;
+        const DOT_COLOR_BUF = 3;
+
+        // Use dot drawing shaders:
+        this.GL.useProgram(this.dotProgram);
+
+        this.GL.enableVertexAttribArray(DOT_VX_BUF);
+        this.GL.enableVertexAttribArray(DOT_POS_BUF);
+        this.GL.enableVertexAttribArray(DOT_SIZE_BUF);
+        this.GL.enableVertexAttribArray(DOT_COLOR_BUF);
+
+        // Bind all line vertex buffers:
+        this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.dotVertexBuffer);
+        this.GL.vertexAttribPointer(DOT_VX_BUF, 3, this.GL.FLOAT, false, 0, 0);
+
+        this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.dotPosBuffer);
+        this.GL.vertexAttribPointer(DOT_POS_BUF, 2, this.GL.FLOAT, false, 8, 0);
+        this.ext.vertexAttribDivisorANGLE(DOT_POS_BUF, 1);
+
+        this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.dotSizeBuffer);
+        this.GL.vertexAttribPointer(DOT_SIZE_BUF, 1, this.GL.FLOAT, false, 4, 0);
+        this.ext.vertexAttribDivisorANGLE(DOT_SIZE_BUF, 1);
+
+        this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.dotColorBuffer);
+        this.GL.vertexAttribPointer(DOT_COLOR_BUF, 4, this.GL.FLOAT, false, 16, 0);
+        this.ext.vertexAttribDivisorANGLEr(DOT_COLOR_BUF, 1);
+
+        // Draw all dot instances:
+        this.ext.drawArraysInstancedANGLE(this.GL.TRIANGLE_STRIP, 0, 4, this.numDots);
+    }
+
+
+    _initShaders() {
+        // Shader source code based on WebGL version:
+        let lineVertexSource = null;
+        let fragSource = null;
+        let dotVertexSource = null;
+
+        if (this.GLVersion == 2) {
+            lineVertexSource = `#version 300 es
+                                precision highp float;
+                                layout(location = 0) in vec3 vertexPos;
+                                layout(location = 1) in vec2 inLineStart;
+                                layout(location = 2) in vec2 inLineEnd;
+                                layout(location = 3) in float inLineWidth;
+                                layout(location = 4) in vec4 lineColor;
+
+                                out vec4 color;
+
+                                uniform mat3 projection;
+                                uniform vec2 resolutionScale;
+
+                                void main(void) {
+                                    color = lineColor;
+
+                                    vec2 lineStart = inLineStart * resolutionScale;
+                                    vec2 lineEnd = inLineEnd * resolutionScale;
+                                    float lineWidth = inLineWidth * resolutionScale.x;
+
+                                    vec2 delta = lineStart - lineEnd;
+                                    vec2 centerPos = 0.5 * (lineStart + lineEnd);
+                                    float lineLength = length(delta);
+                                    float phi = atan(delta.y/delta.x);
+
+                                    mat3 scale = mat3(
+                                          lineLength, 0, 0,
+                                          0, lineWidth, 0,
+                                          0, 0, 1);
+                                    mat3 rotate = mat3(
+                                          cos(phi), sin(phi), 0,
+                                          -sin(phi), cos(phi), 0,
+                                          0, 0, 1);
+                                    mat3 translate = mat3(
+                                          1, 0, 0,
+                                          0, 1, 0,
+                                          centerPos.x, centerPos.y, 1);
+
+
+                                    gl_Position = vec4(projection * translate *  rotate *  scale * vertexPos, 1.0);
+                                }`;
+
+
+            fragSource =   `#version 300 es
+                            precision highp float;
+                            in vec4 color;
+                            out vec4 fragmentColor;
+
+                            void main(void) {
+                                fragmentColor = color;
+                            }`;
+
+
+            dotVertexSource =    `#version 300 es
+                                  precision highp float;
+                                  layout(location = 0) in vec3 vertexPos;
+                                  layout(location = 1) in vec2 inDotPos;
+                                  layout(location = 2) in float inDotSize;
+                                  layout(location = 3) in vec4 dotColor;
+
+                                  out vec4 color;
+
+                                  uniform mat3 projection;
+                                  uniform vec2 resolutionScale;
+
+                                  void main(void) {
+                                    color = dotColor;
+                                    vec2 dotPos = resolutionScale * inDotPos;
+                                    float dotSize = resolutionScale.x * inDotSize;
+                                    mat3 translate = mat3(
+                                      dotSize, 0, 0,
+                                      0, dotSize, 0,
+                                      dotPos.x, dotPos.y, 1);
+
+                                    gl_Position = vec4(projection * translate * vertexPos, 1.0);
+                                  }`;
+        } else if (this.GLVersion == 1) {
+            lineVertexSource = ``;
+            fragSource = ``;
+            dotVertexSource = ``;
+        }
+
+
+        this.lineProgram = this._createShaderProgram(lineVertexSource, fragSource);
+        this.dotProgram = this._createShaderProgram(dotVertexSource, fragSource);
+        return (this.lineProgram != false && this.dotProgram != false);
     }
 }
