@@ -404,7 +404,7 @@ class BatchDrawer {
 
         this.GL.bindBuffer(this.GL.ARRAY_BUFFER, this.dotColorBuffer);
         this.GL.vertexAttribPointer(DOT_COLOR_BUF, 4, this.GL.FLOAT, false, 16, 0);
-        this.ext.vertexAttribDivisorANGLEr(DOT_COLOR_BUF, 1);
+        this.ext.vertexAttribDivisorANGLE(DOT_COLOR_BUF, 1);
 
         // Draw all dot instances:
         this.ext.drawArraysInstancedANGLE(this.GL.TRIANGLE_STRIP, 0, 4, this.numDots);
@@ -495,9 +495,79 @@ class BatchDrawer {
                                     gl_Position = vec4(projection * translate * vertexPos, 1.0);
                                   }`;
         } else if (this.GLVersion == 1) {
-            lineVertexSource = ``;
-            fragSource = ``;
-            dotVertexSource = ``;
+            lineVertexSource = `#version 100
+                                precision highp float;
+
+                                attribute vec3 vertexPos;
+                                attribute vec2 inLineStart;
+                                attribute vec2 inLineEnd;
+                                attribute float inLineWidth;
+                                attribute vec4 lineColor;
+
+                                varying vec4 color;
+
+                                uniform mat3 projection;
+                                uniform vec2 resolutionScale;
+
+                                void main(void) {
+                                    color = lineColor;
+
+                                    vec2 lineStart = inLineStart * resolutionScale;
+                                    vec2 lineEnd = inLineEnd * resolutionScale;
+                                    float lineWidth = inLineWidth * resolutionScale.x;
+
+                                    vec2 delta = lineStart - lineEnd;
+                                    vec2 centerPos = 0.5 * (lineStart + lineEnd);
+                                    float lineLength = length(delta);
+                                    float phi = atan(delta.y/delta.x);
+
+                                    mat3 scale = mat3(
+                                          lineLength, 0, 0,
+                                          0, lineWidth, 0,
+                                          0, 0, 1);
+                                    mat3 rotate = mat3(
+                                          cos(phi), sin(phi), 0,
+                                          -sin(phi), cos(phi), 0,
+                                          0, 0, 1);
+                                    mat3 translate = mat3(
+                                          1, 0, 0,
+                                          0, 1, 0,
+                                          centerPos.x, centerPos.y, 1);
+
+
+                                    gl_Position = vec4(projection * translate *  rotate *  scale * vertexPos, 1.0);
+                                }`;
+            fragSource = `#version 100
+                          precision highp float;
+                          varying vec4 color;
+
+                          void main(void) {
+                            gl_FragColor = color;
+                          }`;
+            dotVertexSource = `#version 100
+                              precision highp float;
+
+                              attribute vec3 vertexPos;
+                              attribute vec2 inDotPos;
+                              attribute float inDotSize;
+                              attribute vec4 dotColor;
+
+                              varying vec4 color;
+
+                              uniform mat3 projection;
+                              uniform vec2 resolutionScale;
+
+                              void main(void) {
+                                color = dotColor;
+                                vec2 dotPos = resolutionScale * inDotPos;
+                                float dotSize = resolutionScale.x * inDotSize;
+                                mat3 translate = mat3(
+                                  dotSize, 0, 0,
+                                  0, dotSize, 0,
+                                  dotPos.x, dotPos.y, 1);
+
+                                gl_Position = vec4(projection * translate * vertexPos, 1.0);
+                              }`;
         }
 
 
