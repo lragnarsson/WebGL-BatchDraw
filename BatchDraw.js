@@ -157,6 +157,8 @@ class BatchDrawer {
             resScaleY = this.canvas.height;
         }
 
+        this.GL.viewport(0, 0, this.canvas.width, this.canvas.height);
+
         this.GL.useProgram(this.lineProgram);
         let lineProjLoc = this.GL.getUniformLocation(this.lineProgram, 'projection');
         this.GL.uniformMatrix3fv(lineProjLoc, false, projection);
@@ -170,6 +172,11 @@ class BatchDrawer {
         this.GL.uniform2f(dotResLoc, resScaleX, resScaleY);
     }
 
+    updateCanvasSize(width, height) {
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this._initUniforms();
+    }
 
     addLine(startX, startY, endX, endY, width, colorR, colorG, colorB, colorAlpha) {
         this.lineStartArray[2*this.numLines] = startX;
