@@ -1,43 +1,10 @@
 
 function main() {
-    let debug = false;
+    var N = 1000000;
+    var lines = generateLines(N);
 
-    if (debug) {
-        debugTest();
-    } else {
-        var N = 1000000;
-        var lines = generateLines(N);
-
-        //timeCanvas2D(lines, N);
-        timeBatchDraw(lines, N);
-    }
-}
-
-
-function debugTest() {
-    canvas = document.getElementById("canvas");
-    let params = {
-        maxElements: 10,
-        clearColor: {r: 1, g: 1, b: 1, alpha: 1},
-        usePixelCoords: true,
-        forceGL1: false
-    };
-    var batchDrawer = new BatchDrawer(canvas, params);
-
-    if (batchDrawer.error != null) {
-        console.log(batchDrawer.error);
-    } else {
-        // In pixel coordinates:
-        batchDrawer.addLine(500, 100, 100, 50, 10, 0.8, 0.1, 0.7, 1.0);
-        batchDrawer.addLine(10, 100, 30, 300, 10, 0.8, 0.1, 0.7, 1.0);
-        batchDrawer.addDot(400, 300, 20, 0.5, 0.7, 1, 1);
-
-        // In normalized screen coordinates [0, 1]
-        //batchDrawer.addLine(0.5, 0.5, 1, 0, 0.01, 0.8, 0.1, 0.7, 1.0);
-        //batchDrawer.addDot(0.3, 0.5, 0.05, 0.1, 0.7, 1, 1);
-
-        batchDrawer.draw(false);
-    }
+    //timeCanvas2D(lines, N);
+    timeBatchDraw(lines, N);
 }
 
 
@@ -53,7 +20,7 @@ function generateLines(N) {
                     fromX: (1.3*i/N) * w,
                     fromY: 0.5/(2*(i/N) + 1) * h,
                     toX: (0.1*i-1)/(N - i) * w,
-                    toY: (0.3*N)/(5*(i*i)/N) * 0.5 * h,
+                    toY: (0.3*N)/(5*(i*i)/N) * 0.5 * h
                     };
     }
     //console.log(lines);
@@ -64,10 +31,8 @@ function generateLines(N) {
 function timeBatchDraw(lines, N) {
     let canvas = document.getElementById("canvas");
     let params = {
-        maxElements: N,
-        clearColor: {r: 1, g: 1, b: 1, alpha: 1},
-        usePixelCoords: true,
-        forceGL1: false
+        maxLines: N,
+        clearColor: {r: 1, g: 1, b: 1, a: 1}
     };
     let batchDrawer = new BatchDrawer(canvas, params);
 

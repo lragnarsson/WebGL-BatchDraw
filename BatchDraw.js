@@ -1,12 +1,17 @@
+/*
+ * WebGL BatchDraw
+ * Source: https://github.com/lragnarsson/WebGL-BatchDraw
+ * License: MIT
+ */
 
 class BatchDrawer {
     constructor(canvas, params) {
-        // TODO: add default params
         this.canvas = canvas;
-        this.maxElements = params.maxElements;
-        this.forceGL1 = params.forceGL1;
-        this.clearColor = params.clearColor;
-        this.usePixelCoords = params.usePixelCoords;
+        this.maxLines = params.maxLines == null ? 10000 : params.maxLines;
+        this.maxDots = params.maxDots == null ? 10000 : params.maxDots;
+        this.forceGL1 = params.forceGL1 == null ? false : params.forceGL1;
+        this.clearColor = params.clearColor == null ? {r: 0, g: 0, b: 0, a: 0} : params.clearColor;
+        this.useNDC = params.useNDC == null ? false : params.useNDC;
 
         this.error = null;
         this.numLines = 0;
@@ -20,7 +25,7 @@ class BatchDrawer {
             return;
         }
 
-        this.GL.clearColor(this.clearColor.r, this.clearColor.g, this.clearColor.b, this.clearColor.alpha);
+        this.GL.clearColor(this.clearColor.r, this.clearColor.g, this.clearColor.b, this.clearColor.a);
 
         this._initBuffers();
 
@@ -84,14 +89,14 @@ class BatchDrawer {
                                                                         0.5,  0.0,  1.0]), 3);
 
         // Initialize Float32Arrays for CPU storage:
-        this.lineStartArray = new Float32Array(this.maxElements * 2);
-        this.lineEndArray = new Float32Array(this.maxElements * 2);
-        this.lineWidthArray = new Float32Array(this.maxElements);
-        this.lineColorArray = new Float32Array(this.maxElements * 4);
+        this.lineStartArray = new Float32Array(this.maxLines * 2);
+        this.lineEndArray = new Float32Array(this.maxLines * 2);
+        this.lineWidthArray = new Float32Array(this.maxLines);
+        this.lineColorArray = new Float32Array(this.maxLines * 4);
 
-        this.dotPosArray = new Float32Array(this.maxElements * 2);
-        this.dotSizeArray = new Float32Array(this.maxElements);
-        this.dotColorArray = new Float32Array(this.maxElements * 4);
+        this.dotPosArray = new Float32Array(this.maxDots * 2);
+        this.dotSizeArray = new Float32Array(this.maxDots);
+        this.dotColorArray = new Float32Array(this.maxDots * 4);
 
         // Initialize Empty WebGL buffers:
         this.lineStartBuffer = this._initArrayBuffer(this.lineStartArray, 2);
@@ -152,7 +157,7 @@ class BatchDrawer {
                                           -1, 1, 1]);
         let resScaleX = 1;
         let resScaleY = 1;
-        if (!this.usePixelCoords) {
+        if (this.useNDC) {
             resScaleX = this.canvas.width;
             resScaleY = this.canvas.height;
         }
@@ -178,7 +183,7 @@ class BatchDrawer {
         this._initUniforms();
     }
 
-    addLine(startX, startY, endX, endY, width, colorR, colorG, colorB, colorAlpha) {
+    addLine(startX, startY, endX, endY, width, colorR, colorG, colorB, colorA) {
         this.lineStartArray[2*this.numLines] = startX;
         this.lineStartArray[2*this.numLines+1] = startY;
         this.lineEndArray[2*this.numLines] = endX;
@@ -187,24 +192,26 @@ class BatchDrawer {
         this.lineColorArray[4*this.numLines] = colorR;
         this.lineColorArray[4*this.numLines+1] = colorG;
         this.lineColorArray[4*this.numLines+2] = colorB;
-        this.lineColorArray[4*this.numLines+3] = colorAlpha;
+        this.lineColorArray[4*this.numLines+3] = colorA;
         this.numLines++;
     }
 
 
-    addDot(posX, posY, size, colorR, colorG, colorB, colorAlpha) {
+    addDot(posX, posY, size, colorR, colorG, colorB, colorA) {
         this.dotPosArray[2*this.numDots] = posX;
         this.dotPosArray[2*this.numDots+1] = posY;
         this.dotSizeArray[this.numDots] = size;
         this.dotColorArray[4*this.numDots] = colorR;
         this.dotColorArray[4*this.numDots+1] = colorG;
         this.dotColorArray[4*this.numDots+2] = colorB;
-        this.dotColorArray[4*this.numDots+3] = colorAlpha;
+        this.dotColorArray[4*this.numDots+3] = colorA;
         this.numDots++;
     }
 
 
     draw(keepOld) {
+        keepOld = keepOld == null ? false : keepOld;
+
         // Clear screen:
         this.GL.clear(this.GL.COLOR_BUFFER_BIT);
 
