@@ -9,12 +9,13 @@ Using a HTML5 Canvas 2D context to render shapes is simple but can be slow when 
     // Get canvas element:
     canvas = document.getElementById("canvas");
 
-    // Set parameters:
+    // Set parameters (these are the default values used when that option is omitted):
     let params = {
-        maxElements: 100000,
-        clearColor: {r: 1, g: 1, b: 1, alpha: 1},
-        usePixelCoords: true,
-        forceGL1: false
+        maxLines: 10000, // used for preallocation
+        maxDots: 10000,
+        forceGL1: false, // use WebGL 1 even if WebGL 2 is available
+        clearColor: {r: 0, g: 0, b: 0, a: 0}, // Color to clear screen with
+        useNDC: false // Use normalized device coordinates [0, 1] instead of pixel coordinates
     };
 
     // Initialize BatchDrawer:
@@ -24,14 +25,14 @@ Using a HTML5 Canvas 2D context to render shapes is simple but can be slow when 
     if (batchDrawer.error != null) {
         console.log(batchDrawer.error);
     } else {
-        // Add a line. args = (fromX, fromY, toX, toY, lineWidth, colorR, colorG, colorB, colorAlpha)
+        // Add a line. args = (fromX, fromY, toX, toY, lineWidth, colorR, colorG, colorB, colorA)
         batchDrawer.addLine(10, 100, 30, 300, 10, 0.8, 0.1, 0.7, 1.0);
 
-        // Adda a dot. Args = (posX, posY, dotSize, colorR, colorG, colorB, colorAlpha)
+        // Adda a dot. Args = (posX, posY, dotSize, colorR, colorG, colorB, colorA)
         batchDrawer.addDot(400, 300, 20, 0.5, 0.7, 1, 1);
 
         // Draw all added lines and dots, pass true to remember old elements next draw call.
-        batchDrawer.draw(false);
+        batchDrawer.draw();
     }
 ```
 
