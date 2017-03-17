@@ -21,6 +21,18 @@ class BatchDrawer {
             return;
         }
 
+        // Define attribute locations:
+        this.LINE_VX_BUF = 0;
+        this.LINE_START_BUF = 1;
+        this.LINE_END_BUF = 2;
+        this.LINE_WIDTH_BUF = 3;
+        this.LINE_COLOR_BUF = 4;
+
+        this.DOT_VX_BUF = 0;
+        this.DOT_POS_BUF = 1;
+        this.DOT_SIZE_BUF = 2;
+        this.DOT_COLOR_BUF = 3;
+
         if (!this._initShaders()) {
             return;
         }
@@ -78,29 +90,6 @@ class BatchDrawer {
 
 
     _initBuffers() {
-        this.LINE_VX_BUF = 0;
-        this.LINE_START_BUF = 1;
-        this.LINE_END_BUF = 2;
-        this.LINE_WIDTH_BUF = 3;
-        this.LINE_COLOR_BUF = 4;
-
-        this.DOT_VX_BUF = 0;
-        this.DOT_POS_BUF = 1;
-        this.DOT_SIZE_BUF = 2;
-        this.DOT_COLOR_BUF = 3;
-
-        this.GL.bindAttribLocation(this.lineProgram, this.LINE_VX_BUF, 'vertexPos');
-        this.GL.bindAttribLocation(this.dotProgram, this.DOT_VX_BUF, 'vertexPos');
-
-        this.GL.bindAttribLocation(this.lineProgram, this.LINE_START_BUF, 'inLineStart');
-        this.GL.bindAttribLocation(this.lineProgram, this.LINE_END_BUF, 'inLineEnd');
-        this.GL.bindAttribLocation(this.lineProgram, this.LINE_WIDTH_BUF, 'inLineWidth');
-        this.GL.bindAttribLocation(this.lineProgram, this.LINE_COLOR_BUF, 'lineColor');
-
-        this.GL.bindAttribLocation(this.dotProgram, this.DOT_POS_BUF, 'inDotPos');
-        this.GL.bindAttribLocation(this.dotProgram, this.DOT_SIZE_BUF, 'inDotSize');
-        this.GL.bindAttribLocation(this.dotProgram, this.DOT_COLOR_BUF, 'dotColor');
-
         // Initialize constant vertex positions for lines and dots:
         this.lineVertexBuffer = this._initArrayBuffer(new Float32Array([-0.5,  0.5,  1.0,
                                                                         -0.5, -0.5,  1.0,
@@ -141,7 +130,7 @@ class BatchDrawer {
     }
 
 
-    _createShaderProgram(vertexSource, fragmentSource) {
+    _createShaderProgram(vertexSource, fragmentSource, shape) {
         let vertexShader = this._compileShader(vertexSource, this.GL.VERTEX_SHADER);
         let fragmentShader = this._compileShader(fragmentSource, this.GL.FRAGMENT_SHADER);
         if (!vertexShader || ! fragmentShader) {
@@ -149,6 +138,21 @@ class BatchDrawer {
         }
 
         let program = this.GL.createProgram();
+
+        // Bind attribute locations for this shape:
+        if (shape === 'line') {
+            this.GL.bindAttribLocation(program, this.LINE_VX_BUF, 'vertexPos');
+            this.GL.bindAttribLocation(program, this.LINE_START_BUF, 'inLineStart');
+            this.GL.bindAttribLocation(program, this.LINE_END_BUF, 'inLineEnd');
+            this.GL.bindAttribLocation(program, this.LINE_WIDTH_BUF, 'inLineWidth');
+            this.GL.bindAttribLocation(program, this.LINE_COLOR_BUF, 'lineColor');
+        } else if (shape === 'dot') {
+            this.GL.bindAttribLocation(program, this.DOT_VX_BUF, 'vertexPos');
+            this.GL.bindAttribLocation(program, this.DOT_POS_BUF, 'inDotPos');
+            this.GL.bindAttribLocation(program, this.DOT_SIZE_BUF, 'inDotSize');
+            this.GL.bindAttribLocation(program, this.DOT_COLOR_BUF, 'dotColor');
+        }
+
         this.GL.attachShader(program, vertexShader);
         this.GL.attachShader(program, fragmentShader);
         this.GL.linkProgram(program);
@@ -586,8 +590,8 @@ class BatchDrawer {
         }
 
 
-        this.lineProgram = this._createShaderProgram(lineVertexSource, fragSource);
-        this.dotProgram = this._createShaderProgram(dotVertexSource, fragSource);
+        this.lineProgram = this._createShaderProgram(lineVertexSource, fragSource, 'line');
+        this.dotProgram = this._createShaderProgram(dotVertexSource, fragSource, 'dot');
         return (this.lineProgram != false && this.dotProgram != false);
     }
 }
