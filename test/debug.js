@@ -4,9 +4,10 @@ function main() {
         maxLines: 10,
         maxDots: 10,
         clearColor: {r: 1, g: 1, b: 1, a: 1},
-        useNDC: false
+        useNDC: false,
+        forceGL1: true
     };
-    var batchDrawer = new BatchDrawer(canvas, params);
+    let batchDrawer = new BatchDrawer(canvas, params);
 
     if (batchDrawer.error != null) {
         console.log(batchDrawer.error);
