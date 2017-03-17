@@ -89,17 +89,27 @@ class BatchDrawer {
         this.DOT_SIZE_BUF = 2;
         this.DOT_COLOR_BUF = 3;
 
+        this.GL.bindAttribLocation(this.lineProgram, this.LINE_VX_BUF, 'vertexPos');
+        this.GL.bindAttribLocation(this.dotProgram, this.DOT_VX_BUF, 'vertexPos');
+
+        this.GL.bindAttribLocation(this.lineProgram, this.LINE_START_BUF, 'inLineStart');
+        this.GL.bindAttribLocation(this.lineProgram, this.LINE_END_BUF, 'inLineEnd');
+        this.GL.bindAttribLocation(this.lineProgram, this.LINE_WIDTH_BUF, 'inLineWidth');
+        this.GL.bindAttribLocation(this.lineProgram, this.LINE_COLOR_BUF, 'lineColor');
+
+        this.GL.bindAttribLocation(this.dotProgram, this.DOT_POS_BUF, 'inDotPos');
+        this.GL.bindAttribLocation(this.dotProgram, this.DOT_SIZE_BUF, 'inDotSize');
+        this.GL.bindAttribLocation(this.dotProgram, this.DOT_COLOR_BUF, 'dotColor');
+
         // Initialize constant vertex positions for lines and dots:
         this.lineVertexBuffer = this._initArrayBuffer(new Float32Array([-0.5,  0.5,  1.0,
                                                                         -0.5, -0.5,  1.0,
                                                                          0.5,  0.5,  1.0,
                                                                         0.5, -0.5,  1.0]), 3);
-        this.GL.bindAttribLocation(this.lineProgram, this.LINE_VX_BUF, 'vertexPos');
         this.dotVertexBuffer = this._initArrayBuffer(new Float32Array([-0.5,  0.0,  1.0,
                                                                         0.0, -0.5,  1.0,
                                                                         0.0,  0.5,  1.0,
                                                                         0.5,  0.0,  1.0]), 3);
-        this.GL.bindAttribLocation(this.dotProgram, this.DOT_VX_BUF, 'vertexPos');
 
         // Initialize Float32Arrays for CPU storage:
         this.lineStartArray = new Float32Array(this.maxLines * 2);
@@ -113,20 +123,13 @@ class BatchDrawer {
 
         // Initialize Empty WebGL buffers:
         this.lineStartBuffer = this._initArrayBuffer(this.lineStartArray, 2);
-        this.GL.bindAttribLocation(this.lineProgram, this.LINE_START_BUF, 'inLineStart');
         this.lineEndBuffer = this._initArrayBuffer(this.lineEndArray, 2);
-        this.GL.bindAttribLocation(this.lineProgram, this.LINE_END_BUF, 'inLineEnd');
         this.lineWidthBuffer = this._initArrayBuffer(this.lineWidthArray, 1);
-        this.GL.bindAttribLocation(this.lineProgram, this.LINE_WIDTH_BUF, 'inLineWidth');
         this.lineColorBuffer = this._initArrayBuffer(this.lineColorArray, 4);
-        this.GL.bindAttribLocation(this.lineProgram, this.LINE_COLOR_BUF, 'lineColor');
 
         this.dotPosBuffer = this._initArrayBuffer(this.dotPosArray, 2);
-        this.GL.bindAttribLocation(this.dotProgram, this.DOT_POS_BUF, 'inDotPos');
         this.dotSizeBuffer = this._initArrayBuffer(this.dotSizeArray, 1);
-        this.GL.bindAttribLocation(this.dotProgram, this.DOT_SIZE_BUF, 'inDotSize');
         this.dotColorBuffer = this._initArrayBuffer(this.dotColorArray, 4);
-        this.GL.bindAttribLocation(this.dotProgram, this.DOT_COLOR_BUF, 'dotColor');
     }
 
 
