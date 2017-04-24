@@ -6,16 +6,40 @@
 
 class BatchDrawer {
     constructor(canvas, params) {
+        // Define coordinate system "enums"
+        this.PIXELS = 0;
+        this.NDC = 1;
+        this.WGS84 = 2;
+
+        // Get optional parameters or defaults
         this.canvas = canvas;
         this.maxLines = params.maxLines == null ? 10000 : params.maxLines;
         this.maxDots = params.maxDots == null ? 10000 : params.maxDots;
         this.forceGL1 = params.forceGL1 == null ? false : params.forceGL1;
         this.clearColor = params.clearColor == null ? {r: 0, g: 0, b: 0, a: 0} : params.clearColor;
-        this.useNDC = params.useNDC == null ? false : params.useNDC;
+        switch(params.coordinateSystem) {
+        case null:
+        case "pixels":
+            this.coordinateSystem = this.PIXELS;
+            break;
+        case "ndc":
+            this.coordinateSystem = this.NDC;
+            break;
+        case "wgs84":
+            this.coordinateSystem = this.WGS84;
+            break;
+        default:
+            this.error = "Unrecognized coordinate system. Use pixels, ndc or wgs84!";
+            return;
+        }
 
+        // Init variables
         this.error = null;
         this.numLines = 0;
         this.numDots = 0;
+        this.zoomLevel = 1;
+        this.zoomScale = 256 * Math.pow(2, this.zoomLevel);
+        this.pixelOrigin = {x: 0, y: 0};
 
         if (!this._initGLContext()) {
             return;
@@ -94,7 +118,7 @@ class BatchDrawer {
         this.lineVertexBuffer = this._initArrayBuffer(new Float32Array([-0.5,  0.5,  1.0,
                                                                         -0.5, -0.5,  1.0,
                                                                          0.5,  0.5,  1.0,
-                                                                        0.5, -0.5,  1.0]), 3);
+                                                                         0.5, -0.5,  1.0]), 3);
         this.dotVertexBuffer = this._initArrayBuffer(new Float32Array([-0.5,  0.0,  1.0,
                                                                         0.0, -0.5,  1.0,
                                                                         0.0,  0.5,  1.0,
@@ -184,7 +208,7 @@ class BatchDrawer {
                                           -1, 1, 1]);
         let resScaleX = 1;
         let resScaleY = 1;
-        if (this.useNDC) {
+        if (this.coordinateSystem == this.NDC) {
             resScaleX = this.canvas.width;
             resScaleY = this.canvas.height;
         }
@@ -194,21 +218,59 @@ class BatchDrawer {
         this.GL.useProgram(this.lineProgram);
         let lineProjLoc = this.GL.getUniformLocation(this.lineProgram, 'projection');
         this.GL.uniformMatrix3fv(lineProjLoc, false, projection);
-        let lineResLoc = this.GL.getUniformLocation(this.lineProgram, 'resolutionScale');
-        this.GL.uniform2f(lineResLoc, resScaleX, resScaleY);
+        if (this.coordinateSystem != this.WGS84) {
+            let lineResLoc = this.GL.getUniformLocation(this.lineProgram, 'resolutionScale');
+            this.GL.uniform2f(lineResLoc, resScaleX, resScaleY);
+        }
 
         this.GL.useProgram(this.dotProgram);
         let dotProjLoc = this.GL.getUniformLocation(this.dotProgram, 'projection');
         this.GL.uniformMatrix3fv(dotProjLoc, false, projection);
-        let dotResLoc = this.GL.getUniformLocation(this.dotProgram, 'resolutionScale');
-        this.GL.uniform2f(dotResLoc, resScaleX, resScaleY);
+        if (this.coordinateSystem != this.WGS84) {
+            let dotResLoc = this.GL.getUniformLocation(this.dotProgram, 'resolutionScale');
+            this.GL.uniform2f(dotResLoc, resScaleX, resScaleY);
+        }
+
+        this.setZoomLevel(this.zoomLevel);
+        this.setPixelOrigin(this.pixelOrigin);
     }
+
 
     updateCanvasSize(width, height) {
         this.canvas.width = width;
         this.canvas.height = height;
         this._initUniforms();
     }
+
+
+    setZoomLevel(zoomLevel) {
+        this.zoomLevel = zoomLevel;
+        this.zoomScale = 256 * Math.pow(2, this.zoomLevel);
+        if (this.coordinateSystem == this.WGS84) {
+            this.GL.useProgram(this.lineProgram);
+            let zoomLocLine = this.GL.getUniformLocation(this.lineProgram, 'zoomScale');
+            this.GL.uniform1f(zoomLocLine, 0.5 * this.zoomScale);
+
+            this.GL.useProgram(this.dotProgram);
+            let zoomLocDot = this.GL.getUniformLocation(this.dotProgram, 'zoomScale');
+            this.GL.uniform1f(zoomLocDot, 0.5 * this.zoomScale);
+        }
+    }
+
+
+    setPixelOrigin(pixelOrigin) {
+        this.pixelOrigin = pixelOrigin;
+        if (this.coordinateSystem == this.WGS84) {
+            this.GL.useProgram(this.lineProgram);
+            let originLocLine = this.GL.getUniformLocation(this.lineProgram, 'pixelOrigin');
+            this.GL.uniform2f(originLocLine, this.pixelOrigin.x, this.pixelOrigin.y);
+
+            this.GL.useProgram(this.dotProgram);
+            let originLocDot = this.GL.getUniformLocation(this.dotProgram, 'pixelOrigin');
+            this.GL.uniform2f(originLocDot, this.pixelOrigin.x, this.pixelOrigin.y);
+        }
+    }
+
 
     addLine(startX, startY, endX, endY, width, colorR, colorG, colorB, colorA) {
         this.lineStartArray[2*this.numLines] = startX;
@@ -437,7 +499,16 @@ class BatchDrawer {
         let dotVertexSource = null;
 
         if (this.GLVersion == 2) {
-            lineVertexSource = `#version 300 es
+            fragSource =   `#version 300 es
+                            precision highp float;
+                            in vec4 color;
+                            out vec4 fragmentColor;
+
+                            void main(void) {
+                                fragmentColor = color;
+                            }`;
+            if (this.coordinateSystem != this.WGS84) {
+                lineVertexSource = `#version 300 es
                                 precision highp float;
                                 layout(location = 0) in vec3 vertexPos;
                                 layout(location = 1) in vec2 inLineStart;
@@ -479,17 +550,6 @@ class BatchDrawer {
                                     gl_Position = vec4(projection * translate *  rotate *  scale * vertexPos, 1.0);
                                 }`;
 
-
-            fragSource =   `#version 300 es
-                            precision highp float;
-                            in vec4 color;
-                            out vec4 fragmentColor;
-
-                            void main(void) {
-                                fragmentColor = color;
-                            }`;
-
-
             dotVertexSource =    `#version 300 es
                                   precision highp float;
                                   layout(location = 0) in vec3 vertexPos;
@@ -513,8 +573,106 @@ class BatchDrawer {
 
                                     gl_Position = vec4(projection * translate * vertexPos, 1.0);
                                   }`;
+            } else {
+                lineVertexSource = `#version 300 es
+                                #define M_PI 3.1415926535897932384626433832795
+                                precision highp float;
+                                layout(location = 0) in vec3 vertexPos;
+                                layout(location = 1) in vec2 inLineStart;
+                                layout(location = 2) in vec2 inLineEnd;
+                                layout(location = 3) in float inLineWidth;
+                                layout(location = 4) in vec4 lineColor;
+
+                                out vec4 color;
+
+                                uniform mat3 projection;
+                                uniform float zoomScale;
+                                uniform vec2 pixelOrigin;
+
+                                vec2 wgs84_to_webmerc(vec2 latlong) {
+                                    vec2 p;
+                                    float sin_lat = sin(M_PI * latlong.y / 180.f);
+                                    p.x = zoomScale * (latlong.x / 180.f + 1.f);
+                                    // atanh:
+                                    p.y = zoomScale * (-log((1.f + sin_lat) / (1.f - sin_lat)) / (2.f * M_PI) + 1.f);
+                                    return p;
+                                }
+
+                                void main(void) {
+                                    color = lineColor;
+
+                                    vec2 lineStart = wgs84_to_webmerc(inLineStart) - pixelOrigin;
+                                    vec2 lineEnd = wgs84_to_webmerc(inLineEnd) - pixelOrigin;
+                                    float lineWidth = inLineWidth;
+
+                                    vec2 delta = lineStart - lineEnd;
+                                    vec2 centerPos = 0.5 * (lineStart + lineEnd);
+                                    float lineLength = length(delta);
+                                    float phi = atan(delta.y/delta.x);
+
+                                    mat3 scale = mat3(
+                                          lineLength, 0, 0,
+                                          0, lineWidth, 0,
+                                          0, 0, 1);
+                                    mat3 rotate = mat3(
+                                          cos(phi), sin(phi), 0,
+                                          -sin(phi), cos(phi), 0,
+                                          0, 0, 1);
+                                    mat3 translate = mat3(
+                                          1, 0, 0,
+                                          0, 1, 0,
+                                          centerPos.x, centerPos.y, 1);
+
+
+                                    gl_Position = vec4(projection * translate *  rotate *  scale * vertexPos, 1.0);
+                                }`;
+
+            dotVertexSource =    `#version 300 es
+                                  #define M_PI 3.1415926535897932384626433832795
+                                  precision highp float;
+                                  layout(location = 0) in vec3 vertexPos;
+                                  layout(location = 1) in vec2 inDotPos;
+                                  layout(location = 2) in float inDotSize;
+                                  layout(location = 3) in vec4 dotColor;
+
+                                  out vec4 color;
+
+                                  uniform mat3 projection;
+                                  uniform float zoomScale;
+                                  uniform vec2 pixelOrigin;
+
+                                  vec2 wgs84_to_webmerc(vec2 latlong) {
+                                      vec2 p;
+                                      float sin_lat = sin(M_PI * latlong.y / 180.f);
+                                      p.x = zoomScale * (latlong.x / 180.f + 1.f);
+                                      // atanh:
+                                      p.y = zoomScale * (-log((1.f + sin_lat) / (1.f - sin_lat)) / (2.f * M_PI) + 1.f);
+                                      return p;
+                                  }
+
+                                  void main(void) {
+                                    color = dotColor;
+                                    vec2 dotPos = wgs84_to_webmerc(inDotPos) - pixelOrigin;
+                                    float dotSize = inDotSize;
+                                    mat3 translate = mat3(
+                                      dotSize, 0, 0,
+                                      0, dotSize, 0,
+                                      dotPos.x, dotPos.y, 1);
+
+                                    gl_Position = vec4(projection * translate * vertexPos, 1.0);
+                                  }`;
+            }
         } else if (this.GLVersion == 1) {
-            lineVertexSource = `#version 100
+            fragSource = `#version 100
+                          precision highp float;
+                          varying vec4 color;
+
+                          void main(void) {
+                            gl_FragColor = color;
+                          }`;
+
+            if (this.coordinateSystem != this.WGS84) {
+                lineVertexSource = `#version 100
                                 precision highp float;
 
                                 attribute vec3 vertexPos;
@@ -556,14 +714,8 @@ class BatchDrawer {
 
                                     gl_Position = vec4(projection * translate *  rotate *  scale * vertexPos, 1.0);
                                 }`;
-            fragSource = `#version 100
-                          precision highp float;
-                          varying vec4 color;
 
-                          void main(void) {
-                            gl_FragColor = color;
-                          }`;
-            dotVertexSource = `#version 100
+                dotVertexSource = `#version 100
                               precision highp float;
 
                               attribute vec3 vertexPos;
@@ -587,6 +739,97 @@ class BatchDrawer {
 
                                 gl_Position = vec4(projection * translate * vertexPos, 1.0);
                               }`;
+            } else { // long lat
+                lineVertexSource = `#version 100
+                                #define M_PI 3.1415926535897932384626433832795
+                                precision highp float;
+
+                                attribute vec3 vertexPos;
+                                attribute vec2 inLineStart;
+                                attribute vec2 inLineEnd;
+                                attribute float inLineWidth;
+                                attribute vec4 lineColor;
+
+                                varying vec4 color;
+
+                                uniform mat3 projection;
+                                uniform float zoomScale;
+                                uniform vec2 pixelOrigin;
+
+                                vec2 wgs84_to_webmerc(vec2 latlong) {
+                                    vec2 p;
+                                    float sin_lat = sin(M_PI * latlong.y / 180.0);
+                                    p.x = zoomScale * (latlong.x / 180.0 + 1.0);
+                                    // atanh:
+                                    p.y = zoomScale * (-log((1.0 + sin_lat) / (1.0 - sin_lat)) / (2.0 * M_PI) + 1.0);
+                                    return p;
+                                }
+
+                                void main(void) {
+                                    color = lineColor;
+                                    vec2 lineStart = wgs84_to_webmerc(inLineStart) - pixelOrigin;
+                                    vec2 lineEnd = wgs84_to_webmerc(inLineEnd) - pixelOrigin;
+
+                                    float lineWidth = inLineWidth;
+
+                                    vec2 delta = lineStart - lineEnd;
+                                    vec2 centerPos = 0.5 * (lineStart + lineEnd);
+                                    float lineLength = length(delta);
+                                    float phi = atan(delta.y/delta.x);
+
+                                    mat3 scale = mat3(
+                                          lineLength, 0, 0,
+                                          0, lineWidth, 0,
+                                          0, 0, 1);
+                                    mat3 rotate = mat3(
+                                          cos(phi), sin(phi), 0,
+                                          -sin(phi), cos(phi), 0,
+                                          0, 0, 1);
+                                    mat3 translate = mat3(
+                                          1, 0, 0,
+                                          0, 1, 0,
+                                          centerPos.x, centerPos.y, 1);
+
+
+                                    gl_Position = vec4(projection * translate *  rotate *  scale * vertexPos, 1.0);
+                                }`;
+
+                dotVertexSource = `#version 100
+                                   #define M_PI 3.1415926535897932384626433832795
+                              precision highp float;
+
+                              attribute vec3 vertexPos;
+                              attribute vec2 inDotPos;
+                              attribute float inDotSize;
+                              attribute vec4 dotColor;
+
+                              varying vec4 color;
+
+                              uniform mat3 projection;
+                                  uniform float zoomScale;
+                                  uniform vec2 pixelOrigin;
+
+                              vec2 wgs84_to_webmerc(vec2 latlong) {
+                                  vec2 p;
+                                  float sin_lat = sin(M_PI * latlong.y / 180.0);
+                                  p.x = zoomScale * (latlong.x / 180.0 + 1.0);
+                                  // atanh:
+                                  p.y = zoomScale * (-log((1.0 + sin_lat) / (1.0 - sin_lat)) / (2.0 * M_PI) + 1.0);
+                                  return p;
+                              }
+
+                              void main(void) {
+                                  color = dotColor;
+                                  vec2 dotPos = wgs84_to_webmerc(inDotPos) - pixelOrigin;
+                                  float dotSize = inDotSize;
+                                  mat3 translate = mat3(
+                                      dotSize, 0, 0,
+                                      0, dotSize, 0,
+                                      dotPos.x, dotPos.y, 1);
+
+                                  gl_Position = vec4(projection * translate * vertexPos, 1.0);
+                              }`;
+            }
         }
 
 
