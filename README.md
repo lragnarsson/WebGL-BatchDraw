@@ -15,7 +15,7 @@ Using a HTML5 Canvas 2D context to render shapes is simple but can be slow when 
         maxDots: 10000,
         forceGL1: false, // use WebGL 1 even if WebGL 2 is available
         clearColor: {r: 0, g: 0, b: 0, a: 0}, // Color to clear screen with
-        useNDC: false // Use normalized device coordinates [0, 1] instead of pixel coordinates
+        coordinateSystem: "ndc" // Use normalized device coordinates [0, 1] instead of pixel coordinates
     };
 
     // Initialize BatchDrawer:
@@ -47,6 +47,3 @@ Here is a speed comparison taking the average over 5 runs of the test script:
 | Canvas 2D, Firefox | 46 ms        | 416 ms        | 4113 ms         |  42,000 ms       |
 | BatchDraw, Chrome  | 2.4 ms       | 21 ms         | 145 ms          |  crashed         |
 | Canvas 2D, Chrome  | 53 ms        | 417 ms        | 4051 ms         |  crashed         |
-
-Chrome didn't like creating 10,000,000 javascript objects and had slower performance overall for the batch approach, 
-most of the extra BatchDraw time on chrome was copying the js line data. The test was done on a Windows 10 PC with an i5 3570K @ 3.4 Ghz and a GTX 670.
