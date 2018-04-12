@@ -221,6 +221,9 @@ class BatchDrawer {
         if (this.coordinateSystem != this.WGS84) {
             let lineResLoc = this.GL.getUniformLocation(this.lineProgram, 'resolutionScale');
             this.GL.uniform2f(lineResLoc, resScaleX, resScaleY);
+        } else {
+            let oneResLoc = this.GL.getUniformLocation(this.lineProgram, 'ONE');
+            this.GL.uniform1f(oneResLoc, 1);
         }
 
         this.GL.useProgram(this.dotProgram);
@@ -576,6 +579,9 @@ class BatchDrawer {
             } else {
                 lineVertexSource = `#version 300 es
                                 #define M_PI 3.1415926535897932384626433832795
+                                #define M_PI_180 0.01745329251f
+                                #define M_2PI 6.28318530718f
+
                                 precision highp float;
                                 layout(location = 0) in vec3 vertexPos;
                                 layout(location = 1) in vec2 inLineStart;
@@ -589,13 +595,124 @@ class BatchDrawer {
                                 uniform float zoomScale;
                                 uniform vec2 pixelOrigin;
 
+                                /* sin with 64 bit precision borrowed from luma.gl: https://github.com/uber/luma.gl */
+                                uniform float ONE;
+
+                                #define INTEL_GPU
+                                // Intel optimizes away the calculation necessary for emulated fp64
+                                #define LUMA_FP64_CODE_ELIMINATION_WORKAROUND 1
+                                // Intel's built-in 'tan' function doesn't have acceptable precision
+                                #define LUMA_FP32_TAN_PRECISION_WORKAROUND 1
+                                // Intel GPU doesn't have full 32 bits precision in same cases, causes overflow
+                                #define LUMA_FP64_HIGH_BITS_OVERFLOW_WORKAROUND 1
+
+
+                                float unSplit(vec2 a) {
+                                  return a.x + a.y;
+                                }
+
+                                vec2 split(float a) {
+                                  const float SPLIT = 4097.0;
+                                  float t = a * SPLIT;
+                                #if defined(LUMA_FP64_CODE_ELIMINATION_WORKAROUND)
+                                  float a_hi = t * ONE - (t - a);
+                                  float a_lo = a * ONE - a_hi;
+                                #else
+                                  float a_hi = t - (t - a);
+                                  float a_lo = a - a_hi;
+                                #endif
+                                  return vec2(a_hi, a_lo);
+                                }
+                                vec2 quickTwoSum(float a, float b) {
+                                #if defined(LUMA_FP64_CODE_ELIMINATION_WORKAROUND)
+                                  float sum = (a + b) * ONE;
+                                  float err = b - (sum - a) * ONE;
+                                #else
+                                  float sum = a + b;
+                                  float err = b - (sum - a);
+                                #endif
+                                  return vec2(sum, err);
+                                }
+                                vec2 twoSum(float a, float b) {
+                                  float s = (a + b);
+                                #if defined(LUMA_FP64_CODE_ELIMINATION_WORKAROUND)
+                                  float v = (s * ONE - a) * ONE;
+                                  float err = (a - (s - v) * ONE) * ONE * ONE * ONE + (b - v);
+                                #else
+                                  float v = s - a;
+                                  float err = (a - (s - v)) + (b - v);
+                                #endif
+                                  return vec2(s, err);
+                                }
+
+                                vec2 twoProd(float a, float b) {
+                                  float prod = a * b;
+                                  vec2 a_fp64 = split(a);
+                                  vec2 b_fp64 = split(b);
+                                  float err = ((a_fp64.x * b_fp64.x - prod) + a_fp64.x * b_fp64.y +
+                                    a_fp64.y * b_fp64.x) + a_fp64.y * b_fp64.y;
+                                  return vec2(prod, err);
+                                }
+                                vec2 sum_fp64(vec2 a, vec2 b) {
+                                  vec2 s, t;
+                                  s = twoSum(a.x, b.x);
+                                  t = twoSum(a.y, b.y);
+                                  s.y += t.x;
+                                  s = quickTwoSum(s.x, s.y);
+                                  s.y += t.y;
+                                  s = quickTwoSum(s.x, s.y);
+                                  return s;
+                                }
+
+                                vec2 mul_fp64(vec2 a, vec2 b) {
+                                  vec2 prod = twoProd(a.x, b.x);
+                                  // y component is for the error
+                                  prod.y += a.x * b.y;
+                                  prod.y += a.y * b.x;
+                                  prod = quickTwoSum(prod.x, prod.y);
+                                  return prod;
+                                }
+
+                                const vec2 INVERSE_FACTORIAL_3_FP64 = vec2(1.666666716337204e-01, -4.967053879312289e-09); // 1/3!
+                                const vec2 INVERSE_FACTORIAL_5_FP64 = vec2(8.333333767950535e-03, -4.34617203337595e-10); // 1/5!
+                                const vec2 INVERSE_FACTORIAL_7_FP64 = vec2(1.9841270113829523e-04,  -2.725596874933456e-12); // 1/7!
+                                const vec2 INVERSE_FACTORIAL_9_FP64 = vec2(2.75573188446287533e-06, 3.7935713937038186e-14); // 1/9!
+
+                                vec2 sin_taylor_fp64(vec2 a) {
+                                  vec2 r, s, t, x;
+                                  if (a.x == 0.0 && a.y == 0.0) {
+                                    return vec2(0.0, 0.0);
+                                  }
+                                  x = -mul_fp64(a, a);
+                                  s = a;
+                                  r = a;
+                                  r = mul_fp64(r, x);
+                                  t = mul_fp64(r, INVERSE_FACTORIAL_3_FP64);
+                                  s = sum_fp64(s, t);
+                                  r = mul_fp64(r, x);
+                                  t = mul_fp64(r, INVERSE_FACTORIAL_5_FP64);
+                                  s = sum_fp64(s, t);
+                                  r = mul_fp64(r, x);
+                                  t = mul_fp64(r, INVERSE_FACTORIAL_7_FP64);
+                                  s = sum_fp64(s, t);
+                                  r = mul_fp64(r, x);
+                                  t = mul_fp64(r, INVERSE_FACTORIAL_9_FP64);
+                                  s = sum_fp64(s, t);
+                                  return s;
+                                }
+
+                                float sin_64(float a) {
+                                  return unSplit(sin_taylor_fp64(split(a)));
+                                }
+
+                                /* Mercator projection using 64 bit sin function above */
                                 vec2 wgs84_to_webmerc(vec2 latlong) {
-                                    vec2 p;
-                                    float sin_lat = sin(M_PI * latlong.y / 180.f);
-                                    p.x = zoomScale * (latlong.x / 180.f + 1.f);
-                                    // atanh:
-                                    p.y = zoomScale * (-log((1.f + sin_lat) / (1.f - sin_lat)) / (2.f * M_PI) + 1.f);
-                                    return p;
+                                  vec2 p;
+                                  float sin_lat = sin_64(latlong.y * M_PI_180);
+                                  p.x = zoomScale * (latlong.x / 180.f + 1.f);
+                                  // atanh:
+                                  p.y = zoomScale * (-log((1.f + sin_lat) / (1.f - sin_lat)) / (M_2PI) + 1.f);
+                                  return p;
                                 }
 
                                 void main(void) {
