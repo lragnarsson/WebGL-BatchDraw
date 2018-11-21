@@ -16,7 +16,7 @@ class BatchDrawer {
         this.maxLines = params.maxLines == null ? 10000 : params.maxLines;
         this.maxDots = params.maxDots == null ? 10000 : params.maxDots;
         this.forceGL1 = params.forceGL1 == null ? false : params.forceGL1;
-        this.clearColor = params.clearColor == null ? {r: 0, g: 0, b: 0, a: 0} : params.clearColor;
+        this.clearColor = params.clearColor == null ? {r: 0, g: 0, b: 0, a: 1} : params.clearColor;
         switch(params.coordinateSystem) {
         case null:
         case "pixels":
@@ -62,6 +62,11 @@ class BatchDrawer {
         }
 
         this.GL.clearColor(this.clearColor.r, this.clearColor.g, this.clearColor.b, this.clearColor.a);
+
+        // Set blend function, color(RGBA) = (sourceColor * sfactor) + (destinationColor * dfactor)
+        // For more info see https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/blendFunc
+        this.GL.enable(this.GL.BLEND);
+        this.GL.blendFunc(this.GL.SRC_ALPHA, this.GL.ONE_MINUS_SRC_ALPHA);
 
         this._initBuffers();
 
