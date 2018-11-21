@@ -1,6 +1,6 @@
 
 function main() {
-    var N = 1000000;
+    var N = 10000;
     var lines = generateLines(N);
 
     //timeCanvas2D(lines, N);
