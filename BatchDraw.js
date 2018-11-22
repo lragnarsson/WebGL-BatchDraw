@@ -66,7 +66,7 @@ class BatchDrawer {
         // Set blend function, color(RGBA) = (sourceColor * sfactor) + (destinationColor * dfactor)
         // For more info see https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/blendFunc
         this.GL.enable(this.GL.BLEND);
-        this.GL.blendFunc(this.GL.SRC_ALPHA, this.GL.ONE_MINUS_SRC_ALPHA);
+        this.GL.blendFunc(this.GL.ONE, this.GL.ONE_MINUS_SRC_ALPHA);
 
         this._initBuffers();
 
